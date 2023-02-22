@@ -1,7 +1,7 @@
-## Python and SAS Skill Show Case
+### Python and SAS Skill Show Case
 
 
-### Hi all! This repository is meant to show off a few projects I completed using Python and SAS. Below is a list and explanation of all the projects in this repository.
+#### Hi all! This repository is meant to show off a few projects I completed using Python and SAS. Below is a list and explanation of all the projects in this repository.
 
 #### EEG Data Analysis Folder: 
 - Located here is a project where I used Python to clean, process, and analyze EEG data by applying various ML models to the data. In the folder is the Jupyter notebook and research poster for the project. 
