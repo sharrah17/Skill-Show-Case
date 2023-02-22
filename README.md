@@ -1,4 +1,4 @@
-### Python and SAS Skill Show Case
+### Python and SAS Skill Showcase
 
 
 #### Hi all! This repository is meant to show off a few projects I completed using Python and SAS. Below is a list and explanation of all the projects in this repository.
