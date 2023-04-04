@@ -1,0 +1,650 @@
+---
+title: "WTA - Serena Williams"
+output: pdf_document
+---
+
+
+
+```{r}
+#load needed packages for the analysis
+
+#library(tidyverse)
+#library(ggplot2)
+#library('gridExtra')
+#devtools::install_github('Mikata-Project/ggthemr')
+#library(ggthemr)
+ #ggthemr("light")
+#install.packages("gridextra")
+
+
+#read in data - load in data using for loop
+years <- 1995:2021
+wta_master <- vector()
+
+for(i in 1:length(years)){
+  file1 <- paste0("wta_matches_", years[i],".csv")
+  file2 <- paste0("wta_matches_qual_itf_", years[i],".csv")
+  read1 <- read.csv(file1, header = T,  na.strings = c("", "NA", "ALT", "Q", "WC"))
+  read2 <- read.csv(file2, header = T,  na.strings = c("", "NA", "ALT", "Q", "WC"))
+  
+  y <- rbind(read1, read2)
+  y <- y %>% mutate(Year = years[i])
+  wta_master <- rbind(wta_master, y)
+}
+
+```
+
+
+
+```{r}
+
+#unique(wta_master$winner_seed)
+
+#find observations where serena lost and won games, mutate new column with wins and losses, combine win and loss data into one df
+wta_Win_Serena <- wta_master %>%
+  filter(winner_name == "Serena Williams") %>% 
+  mutate(WinsLosses = "W")
+
+wta_Lose_Serena <- wta_master %>% 
+  filter(loser_name == "Serena Williams") %>% 
+  mutate(WinsLosses = "L")
+
+wta_Serena_master<- rbind(wta_Win_Serena, wta_Lose_Serena) 
+
+
+#indicator variable using as.factor
+wta_Serena_master$WinsLosses<- as.factor(wta_Serena_master$WinsLosses)
+
+wta_Serena_master<- wta_Serena_master %>% 
+  arrange(tourney_id)
+wta_Serena_master
+
+```
+
+
+```{r}
+
+#find total wins and losses for serena
+win_loss_cnt <- wta_Serena_master %>% 
+  group_by(WinsLosses) %>% 
+  count()
+
+#shows count of wins and losses
+win_loss_cnt
+
+#set color for plot
+colors5 <- c("darkcyan","orange" )
+
+#plot serena's wins and losses using ggplot
+winL_plot<-ggplot(win_loss_cnt, aes(x = WinsLosses, y = n))+
+  geom_col(fill = colors5,color= "darkcyan", alpha = .4) +
+  ggtitle("Serena's Total Wins and Losses")+
+  labs(y = "Count", x = "Losses and Wins")
+
+#print the plot
+winL_plot
+
+#plot serena's wins and losses per tournament
+tourney_names<- c("Australian Open", "French Open", "Wimbledon","US Open")
+tournaments <- wta_Serena_master %>% filter(tourney_name %in% tourney_names)
+tournaments
+
+ggplot(tournaments, aes(x = tourney_name, fill = WinsLosses))+
+  geom_bar(alpha = .6, color = "darkcyan")+
+  ggtitle("Serena's Number of Wins and Losses by Tournament")+
+  labs(y = "Number of Matches", x = "Tournament Name", fill = "")
+
+```
+
+```{r}
+#find serena's losses per year
+LossPerYer <- wta_Serena_master %>% filter(WinsLosses == 'L') %>% 
+  select(WinsLosses, Year) %>% 
+  group_by(Year) %>% 
+  count()
+
+LossPerYer
+
+#find serena's wins per year
+WinPerYear <- wta_Serena_master %>% filter(WinsLosses == 'W') %>% 
+  select(WinsLosses, Year) %>% 
+  group_by(Year) %>% 
+  count()
+
+WinPerYear
+
+addition <- data.frame("Year" = 1995, "n" = 0)
+WinPerYear <- rbind(addition, WinPerYear)
+
+WinPerYear <- WinPerYear %>% rename(n_wins = n)
+
+
+#combine the wins and losses per year dfs into 1 df
+winslosses_df <- left_join(LossPerYer, WinPerYear)
+winslosses_df
+
+
+#plot trend of wins and losses over the years
+winL_lables <- c("Wins", "Losses")
+
+hplot_line <- ggplot(winslosses_df, aes(x = Year))+
+  geom_line(aes(y = n_wins), size =3, color = "orange", alpha = .6)+
+  geom_line(aes(y = n), size = 3, color = "darkcyan",alpha = .6 )+
+  labs(y = "Count")+
+  ggtitle("Trend of Serena's Wins and Losses Over the Years")
+
+hplot_line  
+
+ggplot(winslosses_df, aes())
+
+
+#Plot Serena's wins and losses individually
+
+#Number of lost games per year bar chart
+Loss_bar <- ggplot(LossPerYer, aes(x = Year, y = n))+
+  geom_col()+
+  labs(y= "Count")+
+  ggtitle("No. Losses in Each Year")
+
+Loss_bar
+
+#Number of won games per year bar chart
+Win_bar <- ggplot(WinPerYear, aes(x = Year, y = n_wins))+
+  geom_col()+
+  labs(y= "Count")+
+  ggtitle("No. Wins in Each Year")
+
+Win_bar
+
+```
+
+
+```{r}
+#find and plot serena's rank over the years
+loss_rank <- wta_Serena_master %>% filter(WinsLosses == 'L') %>% 
+  select(loser_rank, Year) %>% 
+  rename(rank = loser_rank)
+
+loss_rank
+
+win_rank <- wta_Serena_master %>% filter(WinsLosses == 'W') %>% 
+  select(winner_rank, Year) %>% 
+  rename(rank = winner_rank)
+
+win_rank
+
+#combine both dfs into 1
+win_loss_rankDF <- rbind(loss_rank, win_rank)
+
+
+ggplot(win_loss_rankDF, aes(x = Year , y = rank))+
+  geom_line( size = 2, color = "darkcyan", alpha = .6)+
+  labs(y = "Rank")+
+  ggtitle("Serena's Ranking Over the Years")+
+  scale_y_reverse() #flip y axis
+
+```
+
+
+```{r}
+#number of Serena's grand slam championships. plot wins and losses
+
+grandSlam <- wta_Serena_master %>% filter(tourney_level == "G") %>% 
+  select(tourney_level, Year, WinsLosses)
+
+grandslam_plot<- ggplot(grandSlam, aes(x = Year,  fill = WinsLosses))+
+  geom_bar(color = "darkcyan", alpha = .6 )+
+  labs(y= "Number of Grandslam Championships", fill = "")+
+  ggtitle("Serena's Grandslam Championship Wins and Losses")
+
+grandslam_plot
+
+```
+
+
+
+```{r}
+
+#distribution of aces by tournament
+tourney_names2<- c("Australian Open", "Wimbledon","US Open")
+
+ace_win_df<- wta_Serena_master %>% filter(WinsLosses == "W") %>% 
+  select(Year,  w_ace, tourney_name) %>% 
+  rename(ace = w_ace)
+
+ace_lose_df<- wta_Serena_master %>% filter(WinsLosses == "L") %>% 
+  select(Year, l_ace, tourney_name) %>% 
+  rename(ace = l_ace)
+
+ace_df<- rbind(ace_win_df, ace_lose_df)
+
+ace_df <-ace_df %>% filter(tourney_name %in% tourney_names2)
+ace_df
+
+ggplot(ace_df, aes(ace, fill = tourney_name) )+
+  geom_density(alpha = .6, position = "stack")+
+  geom_vline(xintercept = mean(ace_df$ace, na.rm = T))+
+  facet_grid(tourney_name~.)+
+  labs(x = "Number of Aces Per Match", y = "Density", fill = "")+
+  ggtitle("Distribution of Aces by Tournament")#no aces in French tournaments, also has lowest number of matches(look at graph above)
+
+
+#distribution of dfs by tournament
+df_win_df <- wta_Serena_master %>% filter(WinsLosses == "W") %>% 
+  select(Year,  w_df, tourney_name) %>% 
+  rename(df = w_df)
+
+df_lose_df<- wta_Serena_master %>% filter(WinsLosses == "L") %>% 
+  select(Year, l_df, tourney_name) %>% 
+  rename(df = l_df)
+
+df_combined<- rbind(df_win_d, df_lose_d)
+
+df_combined <-df_combined %>% filter(tourney_name %in% tourney_names2)
+df_combined
+
+ggplot(df_combined, aes(x=df, fill = tourney_name) )+
+  geom_density(alpha = .6, position = "stack")+
+  geom_vline(xintercept = mean(df_combined$df, na.rm = T))+
+  facet_grid(tourney_name~.)+
+  labs(x = "Number of Double Faults Per Match", y = "Density", fill = "")+
+  ggtitle("Distribution of Double Faults by Tournament")#no aces in French tournaments, also has lowest number of matches(look at graph above)
+
+#remove french open
+
+```
+
+
+
+```{r}
+
+#distribution of match time by tournament
+wta_Serena_master
+
+tourney_names2<- c("Australian Open", "Wimbledon","US Open")
+tourn<- wta_Serena_master %>% filter(tourney_name %in% tourney_names2)
+tourn
+
+ggplot(tourn, aes(x = minutes, fill = tourney_name))+
+  geom_density(alpha = .6, position = "stack")+
+  geom_vline(xintercept = mean(tourn$minutes,  na.rm =T))+
+  facet_grid(tourney_name~.)+
+  ggtitle("Distribution of Match Time by Tournament")+
+  labs(x= "Match Time (minutes)", y = "Density", fill = "")
+
+```
+
+
+
+
+
+
+```{r}
+
+#shows total number 1 rankings they held
+rank_win<- wta_master  %>% select(winner_name, winner_rank, Year) %>% 
+  rename(name= winner_name, rank = winner_rank)
+  
+rank_win
+
+rank_lose<- wta_master  %>% select(loser_name, loser_rank, Year) %>% 
+  rename(name= loser_name, rank = loser_rank)
+  
+rank_lose
+
+ranks <- rbind(rank_win,rank_lose)
+
+rank_g <- ranks %>% filter(rank == 1) %>% 
+  group_by(name, Year) %>% 
+  count() %>% 
+  group_by(name) %>% 
+  count() %>% 
+  arrange(desc(n))
+
+rank_g
+
+#colors for plot
+colors7<- c("orange", "darkcyan", "darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan", "darkcyan")
+
+
+ggplot(rank_g, aes(x = reorder(name, n), y = n ))+
+  geom_col(alpha = .4, color = "darkcyan", fill = colors7)+
+  coord_flip()+
+  labs(x= "Player Name", y = "Number of Years")+
+  ggtitle("Number of Years Players Remained in Number 1 Rank")+
+  scale_y_continuous(limits=c(0, 9), breaks=seq(0,9,1)) #center title
+
+```
+
+
+
+
+```{r}
+
+#ace percentage over years
+ace_win<- wta_Serena_master %>% filter(WinsLosses == "W") %>% 
+  mutate(ace_percent = w_ace/ w_svpt) %>% 
+  select(Year, ace_percent)
+
+ace_lose<- wta_Serena_master %>% filter(WinsLosses == "L") %>% 
+  mutate(ace_percent = l_ace/ l_svpt) %>% 
+  select(Year, ace_percent)
+
+ace_percent<- rbind(ace_win, ace_lose)
+
+
+ace_percent_NAremoved<- ace_percent %>% filter(ace_percent >= 0) %>% group_by(Year) %>% 
+  summarise(across(everything(), mean))
+
+#df percentage over years
+df_win<- wta_Serena_master %>% filter(WinsLosses == "W") %>% 
+  mutate(df_percent = w_df/ w_svpt) %>% 
+  select(Year, df_percent)
+
+df_lose<- wta_Serena_master %>% filter(WinsLosses == "L") %>% 
+  mutate(df_percent = l_df/ l_svpt) %>% 
+  select(Year, df_percent)
+
+df_percent<- rbind(df_win, df_lose)
+
+
+df_perdcent_NAremoved<- df_percent %>% filter(df_percent >= 0) %>% group_by(Year) %>% 
+  summarise(across(everything(), mean))
+
+#join two dataframes
+percentages <- left_join( ace_percent_NAremoved, df_perdcent_NAremoved)
+
+#plot
+percentage_plot <- ggplot(percentages, aes(x = Year))+
+  geom_line(aes(y = df_percent), color = "darkcyan", size = 3, alpha = .6)+
+  geom_line(aes(y = ace_percent), color = "orange", size = 3, alpha = .6 )+
+  labs(y = "Percentage")+
+  ggtitle("Percentages of Aces and Double Faults")
+
+percentage_plot 
+  
+
+```
+
+
+```{r}
+#opponents over the years 
+
+#number of matches Serena Lost to these players in dataframe
+opponent_wins<- wta_Serena_master %>% filter(WinsLosses == "L") %>% 
+  group_by(winner_name) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  rename("n_losses_against_opp" = n) %>% 
+  rename(name = winner_name)
+
+#number of matches Serena won against  these players in dataframe
+opponent_lose<-wta_Serena_master %>% filter(WinsLosses == "W") %>% 
+  group_by(loser_name) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  rename("n_wins_against_opp" = n) %>% 
+  rename(name = loser_name)
+
+opponents <- left_join(opponent_lose, opponent_wins)
+opponents
+
+#plot in bar chart, each bar is a player filled by wins and losses
+lose_opp<- wta_Serena_master %>% filter(winner_name != "Serena Williams") %>% 
+  select(winner_name, WinsLosses) %>% 
+  rename(name = winner_name)
+
+win_opp<- wta_Serena_master %>% filter(loser_name != "Serena Williams") %>% 
+  select(loser_name, WinsLosses) %>% 
+  rename(name = loser_name)
+
+df_opp<- rbind(win_opp, lose_opp)
+
+ggplot(df_opp, aes(x = name, fill = WinsLosses))+
+  geom_bar()#too many people in bar chart
+
+#find number opponents where number of matched against serena are greater or eqaul to ten and get names
+df_opp %>%group_by(name) %>% count() %>% arrange(desc(n)) %>% filter(n >= 10)
+
+names<- c('Venus Williams','Victoria Azarenka', 'Maria Sharapova', 'Jennifer Capriati', 'Lindsay Davenport', 'Jelena Jankovic', 'Justine Henin', 'Amelie Mauresmo',' Elena Dementieva', 'Martina Hingis', 'Na Li', 'Samantha Stosur', 'Simona Halep', 'Svetlana Kuznetsova', 'Patty Schnyder', 'Caroline Wozniacki', 'Daniela Hantuchova', 'Vera Zvonareva', 'Agnieszka Radwanska', 'Ana Ivanovic', 'Lucie Safarova', 'Nadia Petrova')
+
+lose_opp<- wta_Serena_master %>% filter(winner_name %in% names ) %>% 
+  filter(winner_name != "Serena Williams") %>% 
+  select(winner_name, WinsLosses) %>% 
+  rename(name = winner_name)
+
+win_opp<- wta_Serena_master %>% filter(loser_name %in% names ) %>% 
+  filter(loser_name != "Serena Williams") %>% 
+  select(loser_name, WinsLosses) %>% 
+  rename(name = loser_name)
+
+df_opp<- rbind(win_opp, lose_opp)
+
+ggplot(df_opp, aes(x = name, fill = WinsLosses))+
+  geom_bar(alpha = .6, color = "darkcyan")+
+  labs(y = "Number of Matches", x = "OpponentName", fill = "")+
+  ggtitle("Serena's Wins and Losses in Matches with Opponents")+
+  coord_flip()
+
+```
+
+
+```{r}
+#serenas strongest opponents
+name_cnt_lose<- wta_Serena_master %>% filter(winner_name %in% names ) %>% 
+  filter(winner_name != "Serena Williams") %>% 
+  select(winner_name) %>% 
+  rename(name = winner_name)
+
+name_cnt_win<- wta_Serena_master %>% filter(loser_name %in% names ) %>% 
+  filter(loser_name != "Serena Williams") %>% 
+  select(loser_name) %>% 
+  rename(name = loser_name)
+
+name_cnt<- rbind(name_cnt_lose, name_cnt_win)
+name_cnt
+
+name_cnt<- name_cnt %>% 
+  group_by(name)%>% 
+  count() %>% 
+  rename(no_matches = n)
+
+name_cnt
+
+win_cnt_serena<- wta_Serena_master %>% filter(WinsLosses == "W", loser_name %in% names) %>% 
+  select(loser_name) %>% 
+  group_by(loser_name) %>% 
+  count() %>% 
+  rename(name = loser_name, no_wins_Sereana = n)
+
+strong_Opp<- left_join(name_cnt, win_cnt_serena)
+
+strong_Opp<- strong_Opp %>% mutate(percentage_of_S_winning = no_wins_Sereana/no_matches) %>% 
+  arrange(percentage_of_S_winning)
+strong_Opp
+
+strong_opp_plot <- ggplot(strong_Opp, aes(x = reorder(name, percentage_of_S_winning),y = percentage_of_S_winning))+
+  geom_col(alpha = .6, color = "darkcyan")+
+  ggtitle("Serena's Strongest Opponents")+
+  coord_flip()+
+  labs(y = "Proportion of Serena's Wins Against Each Opponent", x = "Opponent Name")
+strong_opp_plot
+
+```
+
+
+
+
+
+
+```{r}
+#find proportion of serena winning against opponents listed in graph below 
+names3<- c("Venus Williams", "Svetlana Kuznetsova", "Patty Schnyder", "Jelena Jankovic", "Lindsay Davenport", "Caroline Wozniacki", "Maria Sharapova", "Angelique Kerber", "Samantha Stosur")
+
+name_cnt_lose2<- wta_Serena_master %>% filter(winner_name %in% names3 ) %>% 
+  filter(winner_name != "Serena Williams") %>% 
+  select(winner_name) %>% 
+  rename(name = winner_name)
+
+name_cnt_win2<- wta_Serena_master %>% filter(loser_name %in% names3 ) %>% 
+  filter(loser_name != "Serena Williams") %>% 
+  select(loser_name) %>% 
+  rename(name = loser_name)
+
+name_cnt2<- rbind(name_cnt_lose2, name_cnt_win2)
+name_cnt2
+
+name_cnt2<- name_cnt2 %>% 
+  group_by(name)%>% 
+  count() %>% 
+  rename(no_matches = n)
+
+name_cnt2
+
+win_cnt_serena2<- wta_Serena_master %>% filter(WinsLosses == "W", loser_name %in% names3) %>% 
+  select(loser_name) %>% 
+  group_by(loser_name) %>% 
+  count() %>% 
+  rename(name = loser_name, no_wins_Sereana = n)
+
+strong_Opp2<- left_join(name_cnt2, win_cnt_serena2)
+
+strong_Opp2<- strong_Opp2 %>% mutate(percentage_of_S_winning = no_wins_Sereana/no_matches) %>% 
+  arrange(percentage_of_S_winning)
+
+#percentage of serena winning against opponents listed in bar grph below/against opponents with the most wins(shown in graph below)
+
+strong_Opp2$proportion <- round(strong_Opp2$percentage_of_S_winning, digit=2)
+
+strong_Opp2<-strong_Opp2 %>% 
+  select(name, proportion)
+
+strong_Opp2
+
+
+OppProportion <- data.frame("name" = c("Venus Williams", "Svetlana Kuznetsova", "Patty Schnyder", "Jelena Jankovic", "Lindsay Davenport", "Caroline Wozniacki", "Maria Sharapova", "Angelique Kerber", "Samantha Stosur"),"proportion" = c(0.61,0.77,0.67,0.71,0.73,0.91,0.87,0.67,0.62))
+
+OppProportion
+
+strong_Opp2
+
+
+#player with most wins on all surface types
+most_wins<- wta_master %>% select(winner_name) %>% 
+  group_by(winner_name) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  head(10)
+
+colors1<- c("orange", "darkcyan", "darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan")
+
+ggplot(most_wins, aes(x = reorder(winner_name, n), y = n))+
+  geom_col(alpha = .4, color = "darkcyan", fill = colors1)+
+  ggtitle("WTA Players with Most Wins")+
+  geom_text(aes(label = c("", OppProportion$proportion)), hjust = -.05)+
+  coord_flip()+
+  labs(y = "Number of Wins", x = "Player Name")+
+  scale_y_continuous(limits=c(0, 875), breaks=seq(0,875,100))
+```
+
+
+
+```{r}
+#Number of serena's wins and losses by surface type
+
+ggplot(wta_Serena_master, aes(x = surface, fill = WinsLosses))+
+  geom_bar(alpha = .6, color = "darkcyan")+
+  ggtitle("Serena's Number of Wins and Losses by Surface Type")+
+  labs(y = "Number of Matches", x = "Surface Type", fill = "")
+
+```
+
+
+```{r}
+unique(wta_master$surface)
+#wins on hard surface
+
+most_winsH<- wta_master %>% filter(surface == "Hard") %>% select(winner_name) %>% 
+  group_by(winner_name) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  head(10)
+
+#most_winsH
+
+
+surf_1<- ggplot(most_winsH, aes(x = reorder(winner_name,n), y = n))+
+  geom_col(fill = colors1, color = "darkcyan", alpha = .4)+
+  ggtitle("WTA Players with Most Wins on Hard")+
+  coord_flip()+
+  labs(y = "Number of Wins", x = "Player Name")+
+  scale_y_continuous(limits=c(0, 550), breaks=seq(0,550,75))+
+  theme(plot.title = element_text(size = 6.5))
+surf_1
+
+#Clay
+
+most_winsCL<- wta_master %>% filter(surface == "Clay") %>% select(winner_name) %>% 
+  group_by(winner_name) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  head(10)
+
+#most_winsCL
+
+
+surf_2<-ggplot(most_winsCL, aes(x = reorder(winner_name, n), y = n))+
+  geom_col(color = "darkcyan", alpha = .6)+
+  ggtitle("WTA Players with Most Wins on Clay")+
+  coord_flip()+
+  labs(y = "Number of Wins", x = "Player Name")+
+  scale_y_continuous(limits=c(0, 450), breaks=seq(0,450,75))+
+  theme(plot.title = element_text(size = 6.5))
+surf_2
+
+#carpet
+
+most_winsCAR<- wta_master %>% filter(surface == "Carpet") %>% select(winner_name) %>% 
+  group_by(winner_name) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  head(10)
+
+#most_winsCAR
+
+
+surf_3<-ggplot(most_winsCAR, aes(x = reorder(winner_name,n), y = n))+
+  geom_col(color = "darkcyan", alpha = .6)+
+  ggtitle("WTA Players with Most Wins on Carpet")+
+  coord_flip()+
+  labs(y = "Number of Wins", x = "Player Name")+
+  scale_y_continuous(limits=c(0, 120), breaks=seq(0,120,20))+
+  theme(plot.title = element_text(size = 6.5))
+surf_3
+
+#grass
+
+most_winsG<- wta_master %>% filter(surface == "Grass") %>% select(winner_name) %>% 
+  group_by(winner_name) %>% 
+  count() %>% 
+  arrange(desc(n)) %>% 
+  head(10)
+
+#most_winsG
+
+colors4<- c("darkcyan", "orange", "darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan","darkcyan")
+
+surf_4<-ggplot(most_winsG, aes(x = reorder(winner_name,n), y = n))+
+  geom_col(fill = colors4, color = "darkcyan", alpha = .4)+
+  ggtitle("WTA Players with Most Wins on Grass")+
+  coord_flip()+
+  labs(y = "Number of Wins", x = "Player Name")+
+  scale_y_continuous(limits=c(0, 150), breaks=seq(0,150,25))+
+  theme(plot.title = element_text(size = 6.5))
+surf_4
+
+#install.packages("gridextra")
+#library(gridExtra)
+grid.arrange(surf_3,surf_2,surf_4, surf_1 ) 
+
+```
